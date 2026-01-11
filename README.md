@@ -1,58 +1,49 @@
 # Event Booking System
 
-A scalable backend API for managing event registrations and ticket bookings, featuring role-based access control and asynchronous background processing.
+An asynchronous backend API for managing event registrations and ticket bookings.
 
-## 📺 Demo Video
-**[REPLACE THIS: Link to your Loom Video here]**
-*Note: The demo includes a walkthrough of the code, a live API demonstration using Postman, and real-time logs of the background tasks.*
-
----
-
-## 🛠 Tech Stack
-- **Runtime:** Node.js (Express.js)
+## ⚙️ Tech Stack
+- **Backend:** Node.js, Express.js
 - **Database:** PostgreSQL
 - **ORM:** Prisma
-- **Task Queue:** BullMQ (powered by Redis)
-- **Security:** JWT (JSON Web Tokens) & Bcrypt (Password Hashing)
-- **Tooling:** Postman (API Testing), Nodemon (Development)
+- **Task Queue:** BullMQ with Redis
+- **Authentication:** JWT (JSON Web Tokens)
 
 ---
 
-## 🚀 Key Features
-- **Dual User Roles:**
-    - **Organizers:** Can create and update event details.
-    - **Customers:** Can browse events and book tickets.
-- **Role-Based Access Control (RBAC):** Custom middleware ensures that customers cannot modify events and organizers cannot book tickets.
-- **Asynchronous Task Processing:** Decoupled architecture using Redis to handle heavy notification logic without slowing down the API response.
+## 🚀 Key Features & Background Tasks
+
+### 1. Role-Based Access Control (RBAC)
+- **Organizers:** Can create, update, and manage events.
+- **Customers:** Can browse events and book tickets.
+- **Design Decision:** Middleware validates the JWT "role" claim to ensure strict boundary separation between user types.
+
+### 2. Async Booking Confirmations (Task 1)
+- When a customer books a ticket, the API offloads the confirmation logic to a background worker.
+- **Design Decision:** This ensures the user receives a "Success" response immediately without waiting for the email server simulation to complete.
+
+### 3. Event Update Notifications (Task 2)
+- When an Organizer updates event details, all registered attendees are added to a notification queue.
+- **Design Decision:** Using a queue prevents the API from timing out when an event has thousands of attendees to notify.
 
 ---
 
-## 🏗 Design Decisions & Architecture
+## 🛠️ Design Decisions (For the Assignment)
 
-### 1. Asynchronous Background Jobs
-I implemented **BullMQ with Redis** to handle two critical background tasks:
-- **Booking Confirmation:** When a user books a ticket, the API returns a success message immediately. The "email" is handled by a background worker to ensure low latency for the user.
-- **Event Update Notifications:** When an organizer updates an event, the system identifies all attendees and queues up individual notifications. Using a queue prevents the API from timing out if an event has a large number of bookings.
-
-### 2. Concurrency & Data Integrity
-To prevent **overbooking**, I utilized database-level logic. Before a booking is saved, the system checks if `availableTickets > 0`. 
-*Decision:* I chose a relational database (PostgreSQL) to handle ticket counts to ensure strict ACID compliance during high-traffic booking periods.
-
-### 3. Middleware-Based Authorization
-Security is handled via a central `authorize` middleware. This decodes the JWT and verifies the `role` property.
-*Decision:* This approach keeps the controller logic clean and ensures that security rules are enforced consistently across all endpoints.
+- **Concurrency Control:** To prevent overbooking, I implemented **database transactions** using Prisma. This ensures that the system checks ticket availability and decrements the count in a single atomic operation, preventing `available_tickets` from ever dropping below zero.
+- **Decoupling:** Background tasks are handled by a separate Worker process. This follows a microservices-ready architecture where the API and the Worker can scale independently.
+- **Error Handling:** The system uses global error-handling middleware to ensure consistent JSON responses for both 4xx and 5xx errors, improving the developer experience for frontend integration.
 
 ---
 
-## ⚙️ Setup & Installation
+## 📸 Demo
+[Link to your Loom Video here]
 
-### Prerequisites
-- Node.js (v16+)
-- PostgreSQL
-- Redis Server (Running on port 6379)
+---
 
-### Installation
-1. **Clone the repository:**
-   ```bash
-   git clone <your-repo-url>
-   cd event-booking-system
+## 🛠 Setup Instructions
+1. **Clone the repo:** `git clone <your-repo-url>`
+2. **Install dependencies:** `npm install`
+3. **Database Migration:** `npx prisma migrate dev`
+4. **Start the API:** `npm run dev`
+5. **Start the Worker:** `node src/workers/notificationWorker.js`
